@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chúc Mừng 20/10</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(ellipse at 50% 120%, #3a0f3f 0%, #170b2e 45%, #05040f 100%);
+    font-family: 'Dancing Script', cursive;
+    color: #fff;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  #message {
+    position: fixed; top: 6vh; left: 50%; transform: translateX(-50%);
+    width: min(92vw, 820px); text-align: center;
+    font-size: clamp(22px, 4.2vw, 42px); line-height: 1.45; font-weight: 700;
+    color: #ffe3f1;
+    text-shadow: 0 0 10px rgba(255, 105, 180, .85), 0 0 24px rgba(255, 105, 180, .5);
+    pointer-events: none; z-index: 2;
+  }
+  #message .w { display: inline-block; white-space: nowrap; }
+  #message .ch {
+    display: inline-block; opacity: 0;
+    transform: translateY(12px) scale(.6); filter: blur(6px);
+    transition: opacity .6s ease, transform .6s cubic-bezier(.2,1.6,.4,1), filter .6s ease;
+  }
+  #message .ch.on { opacity: 1; transform: none; filter: blur(0); }
+
+  #gift {
+    position: fixed; bottom: 6vh; left: 0; right: 0; text-align: center;
+    font-size: clamp(34px, 7vw, 64px); font-weight: 700;
+    color: #fff0f6;
+    text-shadow: 0 0 12px #ff4fa3, 0 0 30px #ff4fa3, 0 0 60px #ff2d87;
+    opacity: 0; transform: translateY(30px) scale(.7);
+    transition: opacity 1.4s ease, transform 1.4s cubic-bezier(.2,1.4,.4,1);
+    pointer-events: none; z-index: 2;
+  }
+  #gift.on { opacity: 1; transform: none; animation: beat 1.6s ease-in-out 1.4s infinite; }
+  @keyframes beat { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  #start {
+    position: fixed; inset: 0; z-index: 5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    cursor: pointer; transition: opacity .8s ease;
+  }
+  #start .box { font-size: 90px; animation: wobble 1.4s ease-in-out infinite; filter: drop-shadow(0 0 20px #ff4fa3); }
+  #start .hint { font-size: clamp(26px, 6vw, 40px); color: #ffd6ea; text-shadow: 0 0 12px #ff4fa3; }
+  #start.hide { opacity: 0; pointer-events: none; }
+  @keyframes wobble {
+    0%,100% { transform: rotate(0) scale(1); }
+    25% { transform: rotate(-10deg) scale(1.08); }
+    75% { transform: rotate(10deg) scale(1.08); }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="message"></div>
+<div id="gift">Tặng em nèee</div>
+<div id="start">
+  <div class="box">🎁</div>
+  <div class="hint">Chạm vào đây nha em ♥</div>
+</div>
+
+<script>
+const MESSAGE = "Chúc em 20/10 thiệt vui vẻ và hạnh phúc, lúc nào cũng nở nụ cười thiệt nhiều, vì em cười đẹp lắm ó";
+
+const cvs = document.getElementById('c');
+const ctx = cvs.getContext('2d');
+let W, H, stars = [];
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cvs.width = W * dpr; cvs.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  stars = Array.from({ length: Math.round(W * H / 6000) }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    r: Math.random() * 1.2 + .3, p: Math.random() * Math.PI * 2, s: Math.random() * .002 + .001
+  }));
+}
+addEventListener('resize', resize);
+resize();
+
+// Vị trí bông hoa (tính lại mỗi khung hình để luôn đúng khi xoay màn hình)
+function layout() {
+  const R = Math.min(W * 0.26, H * 0.13);
+  return { R, cx: W / 2, cy: H * 0.5 };
+}
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+
+/* ---------- Pháo hoa thường ---------- */
+let sparks = [], rockets = [], flower = [], flowerStart = 0;
+
+function burst(x, y, hue, n = 90) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = rand(1, 5.5);
+    sparks.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: 0, max: rand(50, 90), size: rand(1.2, 2.4),
+      color: `hsl(${hue + rand(-20, 20)},100%,${rand(55, 75)}%)`
+    });
+  }
+}
+
+function launch(x, ty, hue, onBoom) {
+  rockets.push({ x, y: H + 10, sy: H + 10, ty, t: 0, dur: rand(55, 75), hue, onBoom });
+}
+
+/* ---------- Bông hoa bằng pháo hoa ---------- */
+function buildFlower() {
+  const pts = [];
+  const add = (ux, uy, h, s, l, size) => pts.push({
+    ux, uy, color: `hsl(${h},${s}%,${l}%)`, size,
+    delay: rand(0, 18), phase: Math.random() * 6.28,
+    sx: rand(-.6, .6), sy: rand(-.6, .6)
+  });
+
+  // 5 cánh hoa: r = |cos(2.5θ)|
+  for (let i = 0; i < 620; i++) {
+    const th = Math.random() * Math.PI * 2;
+    const edge = Math.abs(Math.cos(2.5 * th));
+    const k = i < 360 ? rand(.93, 1) : Math.sqrt(Math.random());
+    const r = edge * k;
+    if (r < 0.2) continue;
+    add(r * Math.cos(th - Math.PI / 2), r * Math.sin(th - Math.PI / 2),
+        rand(325, 350), 100, 78 - k * 18, rand(1.3, 2.2));
+  }
+  // Nhụy hoa
+  for (let i = 0; i < 110; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.19;
+    add(Math.cos(a) * r, Math.sin(a) * r, rand(40, 55), 100, rand(55, 70), rand(1.3, 2.2));
+  }
+  // Thân cây
+  for (let i = 0; i < 130; i++) {
+    const t = Math.random();
+    add(Math.sin(t * Math.PI) * 0.07 + rand(-.012, .012), 0.95 + t * 1.25, rand(110, 135), 75, rand(45, 60), rand(1.1, 1.8));
+  }
+  // Hai chiếc lá
+  const leaf = (bx, by, ang, len) => {
+    for (let i = 0; i < 75; i++) {
+      const u = Math.random(), side = Math.random() < .5 ? -1 : 1;
+      const wdt = Math.sin(Math.PI * u) * len * 0.32 * (i < 50 ? 1 : Math.random());
+      const lx = u * len, ly = side * wdt;
+      add(bx + lx * Math.cos(ang) - ly * Math.sin(ang), by + lx * Math.sin(ang) + ly * Math.cos(ang),
+          rand(100, 130), 80, rand(42, 58), rand(1.1, 1.8));
+    }
+  };
+  leaf(0.07, 1.5, -Math.PI * 0.2, 0.62);
+  leaf(0.05, 1.75, -Math.PI * 0.8, 0.55);
+  return pts;
+}
+
+/* ---------- Vòng lặp vẽ ---------- */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min((now - last) / 16.67, 3); last = now;
+
+  // làm mờ dần tạo vệt sáng
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'lighter';
+
+  // sao
+  for (const s of stars) {
+    ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.35 * (0.5 + 0.5 * Math.sin(now * s.s + s.p))})`;
+    ctx.fillRect(s.x, s.y, s.r, s.r);
+  }
+
+  // pháo thăng thiên
+  for (let i = rockets.length - 1; i >= 0; i--) {
+    const r = rockets[i];
+    r.t += dt;
+    const p = Math.min(r.t / r.dur, 1);
+    r.y = r.sy + (r.ty - r.sy) * easeOut(p);
+    const x = r.x + Math.sin(r.t * .3) * 1.2;
+    ctx.fillStyle = `hsl(${r.hue},100%,85%)`;
+    ctx.beginPath(); ctx.arc(x, r.y, 2.4, 0, 7); ctx.fill();
+    sparks.push({ x, y: r.y, vx: rand(-.4, .4), vy: rand(.5, 1.5), life: 0, max: rand(15, 30), size: 1.3, color: `hsl(${r.hue},100%,70%)` });
+    if (p >= 1) { rockets.splice(i, 1); r.onBoom ? r.onBoom(x, r.y) : burst(x, r.y, r.hue); }
+  }
+
+  // tia lửa
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i];
+    s.life += dt;
+    s.vx *= Math.pow(0.975, dt); s.vy = s.vy * Math.pow(0.975, dt) + 0.045 * dt;
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    const a = 1 - s.life / s.max;
+    if (a <= 0) { sparks.splice(i, 1); continue; }
+    ctx.globalAlpha = a;
+    ctx.fillStyle = s.color;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // bông hoa
+  if (flower.length) {
+    const { R, cx, cy } = layout();
+    const el = (now - flowerStart) / 16.67;
+    const breathe = 1 + 0.025 * Math.sin(now * 0.0018);
+    for (const f of flower) {
+      const p = Math.max(0, Math.min((el - f.delay) / 80, 1));
+      if (p <= 0) continue;
+      const e = easeOut(p);
+      const tx = cx + f.ux * R * breathe, ty = cy + f.uy * R * breathe;
+      const jx = (1 - e) * f.sx * R * 0.6, jy = (1 - e) * f.sy * R * 0.6;
+      const x = cx + (tx - cx) * e + jx, y = cy + (ty - cy) * e + jy;
+      const tw = 0.65 + 0.35 * Math.sin(now * 0.004 + f.phase);
+      ctx.fillStyle = f.color;
+      ctx.globalAlpha = 0.18 * tw;
+      ctx.beginPath(); ctx.arc(x, y, f.size * 3, 0, 7); ctx.fill();
+      ctx.globalAlpha = tw;
+      ctx.beginPath(); ctx.arc(x, y, f.size, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- Chữ hiện dần ---------- */
+const msgEl = document.getElementById('message');
+const chars = [];
+MESSAGE.split(' ').forEach((word, wi, arr) => {
+  const w = document.createElement('span');
+  w.className = 'w';
+  for (const c of word) {
+    const s = document.createElement('span');
+    s.className = 'ch'; s.textContent = c;
+    w.appendChild(s); chars.push(s);
+  }
+  msgEl.appendChild(w);
+  if (wi < arr.length - 1) msgEl.appendChild(document.createTextNode(' '));
+});
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+async function play() {
+  for (const c of chars) { c.classList.add('on'); await wait(70); }
+  await wait(900);
+
+  // vài phát pháo mở màn
+  launch(W * 0.2, H * 0.35, 200);
+  await wait(500);
+  launch(W * 0.8, H * 0.3, 50);
+  await wait(500);
+  launch(W * 0.35, H * 0.25, 280);
+  launch(W * 0.65, H * 0.28, 160);
+  await wait(1300);
+
+  // phát pháo chính nở thành bông hoa
+  const { cx, cy } = layout();
+  launch(cx, cy, 330, (x, y) => {
+    burst(x, y, 330, 60);
+    flower = buildFlower();
+    flowerStart = performance.now();
+    setTimeout(() => document.getElementById('gift').classList.add('on'), 2000);
+  });
+
+  // pháo hoa nhỏ tiếp tục ở hai bên
+  await wait(3500);
+  (function loop() {
+    const left = Math.random() < .5;
+    launch(W * (left ? rand(.08, .28) : rand(.72, .92)), H * rand(.15, .4), rand(0, 360));
+    setTimeout(loop, rand(1200, 2600));
+  })();
+}
+
+const startEl = document.getElementById('start');
+startEl.addEventListener('click', () => {
+  startEl.classList.add('hide');
+  play();
+}, { once: true });
+
+// chạm vào màn hình để bắn thêm pháo hoa
+cvs.addEventListener('click', e => launch(e.clientX, e.clientY, rand(0, 360)));
+</script>
+</body>
+</html>
